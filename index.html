@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>계약서 핵심 추출기</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; color: #333; min-height: 100vh; }
+.container { max-width: 900px; margin: 0 auto; padding: 20px; }
+h1 { text-align: center; margin-bottom: 20px; color: #2c3e50; font-size: 1.8em; }
+.input-section { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+textarea { width: 100%; min-height: 250px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; resize: vertical; font-family: inherit; }
+textarea:focus { outline: none; border-color: #e74c3c; }
+.btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; }
+.btn-primary { background: #e74c3c; color: #fff; }
+.btn-primary:hover { background: #c0392b; }
+.btn-secondary { background: #3498db; color: #fff; }
+.btn-secondary:hover { background: #2980b9; }
+.btn-group { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.results-section { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.results-section h2 { margin-bottom: 15px; color: #2c3e50; }
+.extraction-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+.extraction-table th, .extraction-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #ecf0f1; font-size: 14px; }
+.extraction-table th { background: #f8f9fa; font-weight: 600; color: #2c3e50; }
+.extraction-table tr:hover { background: #f8f9fa; }
+.risk-highlight { background: #fde8e8; color: #c0392b; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+.checklist-section { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.checklist-section h2 { margin-bottom: 15px; color: #2c3e50; }
+.checklist-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+.checklist-item:last-child { border-bottom: none; }
+.checklist-item input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: #27ae60; }
+.checklist-item label { flex: 1; font-size: 14px; cursor: pointer; }
+.notice-section { background: #fff3cd; border: 1px solid #ffc107; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.notice-section h3 { color: #856404; margin-bottom: 10px; }
+.notice-section p { color: #856404; font-size: 13px; line-height: 1.6; }
+.empty-state { text-align: center; padding: 40px; color: #95a5a6; }
+.tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-left: 6px; }
+.tag-amount { background: #d4efdf; color: #1e8449; }
+.tag-period { background: #d6eaf8; color: #2471a3; }
+.tag-risk { background: #fde8e8; color: #c0392b; }
+.tag-obligation { background: #fdebd0; color: #d68910; }
+.tag-deadline { background: #e8daef; color: #7d3c98; }
+@media (max-width: 600px) { .container { padding: 10px; } h1 { font-size: 1.4em; } .btn-group { flex-direction: column; } .btn { width: 100%; } .extraction-table { font-size: 12px; } }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>📄 계약서 핵심 추출기</h1>
+
+<div class="input-section">
+<textarea id="contractInput" placeholder="계약서 텍스트를 붙여넣으세요.&#10;&#10;예:&#10;제1조(목적) 본 계약은...&#10;제2조(계약기간) 2026년 1월 1일부터 2026년 12월 31일까지&#10;제3조(대금) 총 계약금액은 금 10,000,000원으로 한다&#10;제4조(자동갱신) 만료 30일 전까지 별도의 의사표시가 없는 경우 자동 갱신된다&#10;제5조(위약금) 계약 위반 시 계약금액의 20%를 위약금으로 지급한다"></textarea>
+<div class="btn-group">
+<button class="btn btn-primary" onclick="extractContract()">핵심 추출</button>
+<button class="btn btn-secondary" onclick="clearAll()">초기화</button>
+</div>
+</div>
+
+<div class="results-section" id="resultsSection" style="display:none;">
+<h2>🔍 추출 결과</h2>
+<table class="extraction-table">
+<thead><tr><th>항목</th><th>추출 내용</th></tr></thead>
+<tbody id="extractionTableBody"></tbody>
+</table>
+</div>
+
+<div class="checklist-section" id="checklistSection" style="display:none;">
+<h2>✅ 체크리스트</h2>
+<div id="checklistContainer"></div>
+</div>
+
+<div class="notice-section">
+<h3>⚠️ 법적 고지</h3>
+<p>본 도구는 계약서의 핵심 내용을 빠르게 파악하기 위한 보조 도구입니다. 추출된 내용은 원본 계약서와 반드시 대조하여 확인하시기 바랍니다. 계약서 해석 및 법적 판단은 반드시 변호사 또는 법률 전문가와 상담하시기 바랍니다. 본 도구의 사용으로 발생하는 어떠한 법적 책임도 지지 않습니다.</p>
+</div>
+</div>
+
+<script>
+const STORAGE_KEY = 'contract-extractor-results';
+
+function extractContract() {
+const text = document.getElementById('contractInput').value.trim();
+if (!text) { alert('계약서 텍스트를 입력해주세요.'); return; }
+
+const results = {
+amounts: extractAmounts(text),
+periods: extractPeriods(text),
+renewals: extractRenewals(text),
+obligations: extractObligations(text),
+terminations: extractTerminations(text),
+deadlines: extractDeadlines(text),
+risks: extractRisks(text)
+};
+
+// Save to localStorage
+localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
+
+// Render results
+renderResults(results);
+renderChecklist(results);
+
+document.getElementById('resultsSection').style.display = 'block';
+document.getElementById('checklistSection').style.display = 'block';
+}
+
+function extractAmounts(text) {
+const patterns = [
+/금\s*([\d,]+)원/g,
+/([\d,]+)원/g,
+/계약금액[은는]?\s*금?\s*([\d,]+)원/g,
+/총\s*([\d,]+)원/g,
+/월\s*([\d,]+)원/g
+];
+const amounts = [];
+patterns.forEach(p => {
+let match;
+while ((match = p.exec(text)) !== null) {
+const amount = match[1] || match[0];
+if (amount && !amounts.includes(amount)) amounts.push(amount);
+}
+});
+return amounts;
+}
+
+function extractPeriods(text) {
+const patterns = [
+/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일[부터~\-]\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/g,
+/계약기간[은는]?\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일[부터~\-]\s*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/g,
+/(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})[부터~\-](\d{4})[.\-](\d{1,2})[.\-](\d{1,2})/g
+];
+const periods = [];
+patterns.forEach(p => {
+let match;
+while ((match = p.exec(text)) !== null) {
+periods.push(match[0]);
+}
+});
+return [...new Set(periods)];
+}
+
+function extractRenewals(text) {
+const keywords = ['자동갱신', '자동 갱신', '갱신', '연장'];
+const sentences = text.split(/[.!?]\s*/);
+return sentences.filter(s => keywords.some(k => s.includes(k)));
+}
+
+function extractObligations(text) {
+const keywords = ['의무', '해야 한다', '하여야 한다', '지급할 의무', '제공할 의무', '준수할 의무'];
+const sentences = text.split(/[.!?]\s*/);
+return sentences.filter(s => keywords.some(k => s.includes(k)));
+}
+
+function extractTerminations(text) {
+const keywords = ['해지', '해약', '종료', '终止', '계약 종료', '계약 해지'];
+const sentences = text.split(/[.!?]\s*/);
+return sentences.filter(s => keywords.some(k => s.includes(k)));
+}
+
+function extractDeadlines(text) {
+const patterns = [
+/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일까지/g,
+/(\d{1,2})월\s*(\d{1,2})일까지/g,
+/마감[일시]?\s*[:：]?\s*(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})/g
+];
+const deadlines = [];
+patterns.forEach(p => {
+let match;
+while ((match = p.exec(text)) !== null) {
+deadlines.push(match[0]);
+}
+});
+return [...new Set(deadlines)];
+}
+
+function extractRisks(text) {
+const riskKeywords = ['위약금', '자동갱신', '자동 갱신', '독점', '손해배상', '배상', '벌금', '위반'];
+const sentences = text.split(/[.!?]\s*/);
+return sentences.filter(s => riskKeywords.some(k => s.includes(k)));
+}
+
+function renderResults(results) {
+const tbody = document.getElementById('extractionTableBody');
+let html = '';
+
+if (results.amounts.length > 0) {
+html += `<tr><td>💰 금액 <span class="tag tag-amount">금액</span></td><td>${results.amounts.map(a => `<span class="risk-highlight">${a}원</span>`).join(', ')}</td></tr>`;
+}
+if (results.periods.length > 0) {
+html += `<tr><td>📅 기간 <span class="tag tag-period">기간</span></td><td>${results.periods.join('<br>')}</td></tr>`;
+}
+if (results.renewals.length > 0) {
+html += `<tr><td>🔄 갱신 조건 <span class="tag tag-risk">위험</span></td><td>${results.renewals.map(r => `<span class="risk-highlight">${escapeHtml(r)}</span>`).join('<br>')}</td></tr>`;
+}
+if (results.obligations.length > 0) {
+html += `<tr><td>📋 의무사항 <span class="tag tag-obligation">의무</span></td><td>${results.obligations.map(o => escapeHtml(o)).join('<br>')}</td></tr>`;
+}
+if (results.terminations.length > 0) {
+html += `<tr><td>🚪 해지 조건 <span class="tag tag-risk">위험</span></td><td>${results.terminations.map(t => escapeHtml(t)).join('<br>')}</td></tr>`;
+}
+if (results.deadlines.length > 0) {
+html += `<tr><td>⏰ 마감일 <span class="tag tag-deadline">마감</span></td><td>${results.deadlines.join('<br>')}</td></tr>`;
+}
+if (results.risks.length > 0) {
+html += `<tr><td>⚠️ 위험 조항 <span class="tag tag-risk">위험</span></td><td>${results.risks.map(r => `<span class="risk-highlight">${escapeHtml(r)}</span>`).join('<br>')}</td></tr>`;
+}
+
+if (!html) {
+html = '<tr><td colspan="2" style="text-align:center;color:#95a5a6;">추출된 내용이 없습니다.</td></tr>';
+}
+
+tbody.innerHTML = html;
+}
+
+function renderChecklist(results) {
+const container = document.getElementById('checklistContainer');
+const items = [];
+
+if (results.amounts.length > 0) items.push('금액 조항을 확인하고 산출 근거를 검토했습니다');
+if (results.periods.length > 0) items.push('계약 기간을 확인하고 시작/종료일을 달력에 표시했습니다');
+if (results.renewals.length > 0) items.push('자동 갱신 조항을 확인하고 갱신 거절 기한을 확인했습니다');
+if (results.obligations.length > 0) items.push('의무사항을 확인하고 이행 계획을 수립했습니다');
+if (results.terminations.length > 0) items.push('해지 조건을 확인하고 위험 요소를 검토했습니다');
+if (results.deadlines.length > 0) items.push('마감일을 확인하고 리마인더를 설정했습니다');
+if (results.risks.length > 0) items.push('위험 조항(위약금, 자동갱신, 독점, 손해배상)을 별도로 검토했습니다');
+
+items.push('변호사 또는 법률 전문가와 상담을 예약했습니다');
+
+container.innerHTML = items.map((item, i) => `
+<div class="checklist-item">
+<input type="checkbox" id="check-${i}" onchange="saveChecklist()">
+<label for="check-${i}">${item}</label>
+</div>
+`).join('');
+
+loadChecklist();
+}
+
+function saveChecklist() {
+const checks = [];
+document.querySelectorAll('#checklistContainer input[type="checkbox"]').forEach(cb => {
+checks.push(cb.checked);
+});
+localStorage.setItem(STORAGE_KEY + '-checklist', JSON.stringify(checks));
+}
+
+function loadChecklist() {
+try {
+const checks = JSON.parse(localStorage.getItem(STORAGE_KEY + '-checklist')) || [];
+checks.forEach((checked, i) => {
+const cb = document.getElementById('check-' + i);
+if (cb) cb.checked = checked;
+});
+} catch {}
+}
+
+function clearAll() {
+document.getElementById('contractInput').value = '';
+document.getElementById('resultsSection').style.display = 'none';
+document.getElementById('checklistSection').style.display = 'none';
+localStorage.removeItem(STORAGE_KEY);
+localStorage.removeItem(STORAGE_KEY + '-checklist');
+}
+
+function escapeHtml(text) {
+const div = document.createElement('div');
+div.textContent = text;
+return div.innerHTML;
+}
+</script>
+</body>
+</html>
